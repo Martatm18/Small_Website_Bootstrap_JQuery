@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!-- Configuración básica del documento -->
+    <meta charset="UTF-8">
+    <title>GitHub Repository Viewer</title>
+
+    <!-- Importamos Bootstrap 5 desde CDN para utilizar sus estilos y componentes -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Importamos jQuery desde CDN para poder trabajar con AJAX y manipulación del DOM -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+    <style>
+        /* Estilos personalizados para mejorar la apariencia visual */
+
+        /* Color de fondo general de la página y tipografía */
+        body {
+            background-color: #f5f1ea;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        /* Personalización de la barra de navegación */
+        .navbar { 
+            background-color: #d8cfc4; 
+        }
+
+        /* Estilo del título dentro de la navbar */
+        .navbar-brand {
+            color: #4b3f36 !important;
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+
+        /* Tarjeta contenedora principal */
+        .card {
+            background-color: #ffffff;
+            border: none;
+            border-radius: 20px;
+        }
+
+        /* Botón personalizado */
+        .btn-beige {
+            background-color: #cbbba0;
+            color: #3e342d;
+            border: none;
+        }
+
+        /* Efecto hover del botón */
+        .btn-beige:hover { 
+            background-color: #b7a98f; 
+        }
+
+        /* Estilo del campo de entrada */
+        .form-control {
+            border-radius: 12px;
+            border: 1px solid #ddd;
+        }
+
+        /* Estilo del encabezado de la tabla */
+        .table thead {
+            background-color: #e8e1d8;
+            color: #4b3f36;
+        }
+
+        /* Efecto hover en las filas de la tabla */
+        .table tbody tr:hover {
+            background-color: #f2ece4;
+        }
+
+        /* Estilo de los enlaces */
+        a {
+            color: #6b5e55;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        a:hover { 
+            color: #3e342d; 
+        }
+
+        /* Color del spinner de carga */
+        .spinner-border { 
+            color: #b7a98f; 
+        }
+
+        /* Estilo del mensaje de error */
+        .alert {
+            background-color: #efe7de;
+            color: #5a4d43;
+            border: none;
+            border-radius: 12px;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- Barra de navegación superior -->
+<nav class="navbar py-3">
+  <div class="container-fluid justify-content-center">
+    <span class="navbar-brand">GitHub Repository Explorer</span>
+  </div>
+</nav>
+
+<!-- Contenedor principal -->
+<div class="container mt-5">
+
+    <!-- Card de Bootstrap que contiene todo el contenido funcional -->
+    <div class="card shadow p-5">
+
+        <!-- Título principal -->
+        <h4 class="text-center mb-4" style="color:#4b3f36;">Search a GitHub User</h4>
+
+        <!-- Grupo de entrada (input + botón) usando Bootstrap -->
+        <div class="input-group mb-4">
+            <!-- Campo donde el usuario introduce el username -->
+            <input type="text" id="username" class="form-control" placeholder="Enter username">
+            <!-- Botón que ejecuta la búsqueda -->
+            <button class="btn btn-beige" id="searchBtn">Search</button>
+        </div>
+
+        <!-- Mensaje de error oculto por defecto -->
+        <div id="errorMessage" class="alert d-none text-center">
+            User not found
+        </div>
+
+        <!-- Spinner de carga que se muestra mientras se hace la petición AJAX -->
+        <div class="text-center">
+            <div class="spinner-border d-none" id="loadingSpinner"></div>
+        </div>
+
+        <!-- Tabla donde se mostrarán los repositorios -->
+        <!-- Está oculta inicialmente (d-none) -->
+        <table class="table mt-4 d-none" id="repoTable">
+            <thead>
+                <tr>
+                    <!-- Columnas solicitadas -->
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+    </div>
+</div>
+
+<script>
+
+$(document).ready(function(){
+
+    // Esta función se ejecuta cuando el DOM está completamente cargado
+
+    // Permite realizar la búsqueda al pulsar la tecla Enter
+    $("#username").keypress(function(e){
+        if(e.which === 13){  // Código 13 corresponde a la tecla Enter
+            $("#searchBtn").click();  // Simula el clic del botón
+        }
+    });
+
+    // Evento que se ejecuta cuando el usuario pulsa el botón "Search"
+    $("#searchBtn").click(function(){
+
+        // Obtenemos el valor introducido por el usuario
+        var username = $("#username").val();
+
+        // Si el campo está vacío, no se realiza ninguna acción
+        if(username === ""){
+            return;
+        }
+
+        // Limpiamos la tabla anterior
+        $("#repoTable tbody").empty();
+
+        // Ocultamos tabla y mensajes previos
+        $("#repoTable").addClass("d-none");
+        $("#errorMessage").addClass("d-none");
+
+        // Mostramos el spinner de carga
+        $("#loadingSpinner").removeClass("d-none");
+
+        // Petición AJAX a la API pública de GitHub
+        $.ajax({
+            url: "https://api.github.com/users/" + username + "/repos",
+            method: "GET",
+
+            // Si la petición es exitosa
+            success: function(data){
+
+                // Si el usuario no tiene repositorios
+                if(data.length === 0){
+                    $("#errorMessage")
+                        .text("This user has no repositories")
+                        .removeClass("d-none");
+                } else {
+
+                    // Recorremos el array de repositorios recibido en formato JSON
+                    $.each(data, function(i, repo){
+
+                        // Creamos una etiqueta visual (badge) según si el repositorio es privado o público
+                        var statusBadge = repo.private 
+                            ? "<span class='badge bg-danger'>Private</span>"
+                            : "<span class='badge bg-success'>Public</span>";
+
+                        // Construimos dinámicamente la fila de la tabla
+                        var row = "<tr>" +
+                            "<td><a href='" + repo.html_url + "' target='_blank'>" 
+                            + repo.name + "</a></td>" +
+                            "<td>" 
+                            + (repo.description ? repo.description : "No description") 
+                            + "</td>" +
+                            "<td>" + statusBadge + "</td>" +
+                            "</tr>";
+
+                        // Añadimos la fila generada al cuerpo de la tabla
+                        $("#repoTable tbody").append(row);
+                    });
+
+                    // Mostramos la tabla una vez cargados los datos
+                    $("#repoTable").removeClass("d-none");
+                }
+
+                // Ocultamos el spinner cuando finaliza la carga
+                $("#loadingSpinner").addClass("d-none");
+            },
+
+            // Si ocurre un error (usuario inexistente, por ejemplo)
+            error: function(){
+                $("#loadingSpinner").addClass("d-none");
+                $("#errorMessage")
+                    .text("User not found")
+                    .removeClass("d-none");
+            }
+        });
+
+    });
+
+});
+
+</script>
+
+</body>
+</html>
